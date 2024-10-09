@@ -3,17 +3,23 @@ import re
 from string import Template
 import argparse
 import logging
-from .japanese_utils import CharacterType, clean_string, get_char_type
+from japanese_utils import CharacterType, clean_string, get_char_type
+from pathlib import Path
+
+BASE_PATH = Path(__file__).resolve().parent.parent
+LOG_DIR = BASE_PATH / "logs"
+INPUT_DIR = BASE_PATH / "inputs"
+OUTPUT_DIR = BASE_PATH / "outputs"
 
 logger = logging.getLogger('furigana_merger')
 logger.setLevel(logging.DEBUG)
 
 class FuriganaMerger:
     def __init__(self, 
-                 full_file: str, 
-                 kana_file: str, 
-                 merged_file: str, 
-                 new_kana_file: str, 
+                 full_file: Path, 
+                 kana_file: Path, 
+                 merged_file: Path, 
+                 new_kana_file: Path, 
                  furigana_template: str, 
                  kana_template: str):
         self.full_file = full_file
@@ -142,22 +148,24 @@ class FuriganaMerger:
 
     def merge_files(self):
         logger.info("Merging files...")
-        full_file = open(self.full_file, "r")
-        kana_file = open(self.kana_file, "r")
-        merged_file = open(self.merged_file, "w")
-        new_kana_file = open(self.new_kana_file, "w")
-        full_lines = full_file.readlines()
-        kana_lines = kana_file.readlines()
-        num_errors = 0
-        error_lines = []
-
         logger.debug("\n===== Configuration =====\n")
-        logger.debug("Full file: " + self.full_file)
-        logger.debug("Kana file: " + self.kana_file)
-        logger.debug("Merged file: " + self.merged_file)
-        logger.debug("New kana file: " + self.new_kana_file)
+        logger.debug("Full file: " + self.full_file.name)
+        logger.debug("Kana file: " + self.kana_file.name)
+        logger.debug("Merged file: " + self.merged_file.name)
+        logger.debug("New kana file: " + self.new_kana_file.name)
         logger.debug("Furigana template: " + self.furigana_template)
         logger.debug("Kana template: " + self.kana_template)
+
+        with open(self.full_file, "r") as file:
+            full_lines = file.readlines()
+        with open(self.kana_file, "r") as file:
+            kana_lines = file.readlines()
+
+        merged_file = open(self.merged_file, "w")
+        new_kana_file = open(self.new_kana_file, "w")
+        
+        num_errors = 0
+        error_lines = []
 
         logger.debug("\n===== Starting Merge =====\n")
         for i in range(len(full_lines)):
@@ -181,8 +189,7 @@ class FuriganaMerger:
                     continue
                 merged_file.write(furigana[0] + '\n')
                 new_kana_file.write(furigana[1] + '\n') 
-        full_file.close()
-        kana_file.close()
+        
         merged_file.close()
         new_kana_file.close()
         logger.debug("\n===== Merging complete =====\n")
@@ -192,31 +199,29 @@ class FuriganaMerger:
 
 def main():
     parser = argparse.ArgumentParser(description='Merge furigana and kana files.')
-    parser.add_argument('-f', '--full_file', type=str, default="./inputs/full.txt", help='Path to the full text file')
-    parser.add_argument('-k', '--kana_file', type=str, default="./inputs/kana.txt", help='Path to the kana text file')
-    parser.add_argument('-m', '--merged_file', type=str, default="./outputs/merged.txt", help='Path to the merged output file')
-    parser.add_argument('-n', '--new_kana_file', type=str, default="./outputs/kana.txt", help='Path to the new kana output file')
+    parser.add_argument('-f', '--full_file', type=str, default="full.txt", help='Path to the full text file')
+    parser.add_argument('-k', '--kana_file', type=str, default="kana.txt", help='Path to the kana text file')
+    parser.add_argument('-m', '--merged_file', type=str, default="merged.txt", help='Path to the merged output file')
+    parser.add_argument('-n', '--new_kana_file', type=str, default="kana.txt", help='Path to the new kana output file')
     parser.add_argument('-ft', '--furigana_template', type=str, default='{${kanji}|${hiragana}}', help='Template for furigana')
     parser.add_argument('-kt', '--kana_template', type=str, default='**${hiragana}**', help='Template for kana')
     parser.add_argument('-d', '--debug', action='store_true', help='Enable debug mode')
-    args = parser.parse_args()
-
-    
+    args = parser.parse_args()    
 
     stream_handler = logging.StreamHandler()
     stream_handler.setLevel(logging.INFO)
     logger.addHandler(stream_handler)
 
     if args.debug:
-        file_handler = logging.FileHandler('./logs/furigana-merger.log', mode='w')
+        file_handler = logging.FileHandler(LOG_DIR / 'furigana-merger.log', mode='w')
         file_handler.setLevel(logging.DEBUG)
         logger.addHandler(file_handler)
 
     merger = FuriganaMerger(
-        full_file=args.full_file,
-        kana_file=args.kana_file,
-        merged_file=args.merged_file,
-        new_kana_file=args.new_kana_file,
+        full_file=INPUT_DIR / args.full_file,
+        kana_file=INPUT_DIR / args.kana_file,
+        merged_file=OUTPUT_DIR / args.merged_file,
+        new_kana_file=OUTPUT_DIR / args.new_kana_file,
         furigana_template=args.furigana_template,
         kana_template=args.kana_template
     )
