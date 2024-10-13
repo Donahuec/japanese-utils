@@ -50,15 +50,19 @@ class Vocab:
                 anki_furigana += f"{furigana.group(1)}[{furigana.group(2)}]"
             else:
                 self.width += 2 * len(part)
+                parens = re.search(r'(\(|\))', part)
+                if parens:
+                    self.width -= 2 # parens are only half width
                 no_furigana += part
                 anki_furigana += part
                 pronunciation += part
         return no_furigana, anki_furigana, pronunciation
 
 def extract_vocab(text):
-    text = text.strip().replace("- [ ] ", "").replace("*", "")
-
-    vocab, meaning = re.split(r' \-+ ', text)
+    text = text.strip().replace("- [  ] ", "").replace("*", "")
+    text = text.replace("（", "(").replace("）", ")")
+    print(text)
+    vocab, meaning = re.split(r'[ 　]\-+[ 　]', text)
     return Vocab(vocab, meaning)
 
 def format_vocab_list(vocab_list):
@@ -67,10 +71,25 @@ def format_vocab_list(vocab_list):
     formatted_list = []
     # format list so meaning lines up with vocab padding space with -
     for vocab in vocab_list:
-        padding = "-" * (longest_vocab - vocab.width + min_length)
+        padding = "-" * (20 - vocab.width)
         formatted_list.append(f"{vocab.md_vocab} *{padding}* {vocab.meaning}")
     return formatted_list
 
+def export_csv(vocab_list):
+    with open(OUTPUT_DIR / "output.csv", "w") as file:
+        for vocab in vocab_list:
+            file.write(f"{vocab.csv_format()}\n")
+
+def export_md(vocab_list):
+    formatted_list = format_vocab_list(vocab_list)
+    with open(OUTPUT_DIR / "output.md", "w") as file:
+        for vocab in formatted_list:
+            file.write(f"{vocab}\n")
+
+def export_anki(vocab_list):
+    with open(OUTPUT_DIR / "anki.txt", "w") as file:
+        for vocab in vocab_list:
+            file.write(f'{vocab.anki_furigana},{vocab.meaning},"","",""\n')
 
 def build_vocab_list():
     with open(input_file_path, "r") as file:
@@ -79,13 +98,10 @@ def build_vocab_list():
     for line in lines:
         vocab = extract_vocab(line)
         vocab_list.append(vocab)
-    with open(OUTPUT_DIR / "output.csv", "w") as file:
-        for vocab in vocab_list:
-            file.write(f"{vocab.csv_format()}\n")
-    formatted_list = format_vocab_list(vocab_list)
-    with open(OUTPUT_DIR / "output.md", "w") as file:
-        for line in formatted_list:
-            file.write(f"{line}\n")
+    export_csv(vocab_list)
+    export_md(vocab_list)
+    export_anki(vocab_list)
+
 
 def main():
     build_vocab_list()
