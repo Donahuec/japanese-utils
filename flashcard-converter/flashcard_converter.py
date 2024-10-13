@@ -30,6 +30,16 @@ class Vocab:
         split_result = [part.strip() for part in split_result if part.strip()]
         return split_result
 
+    def calculate_segment_width(self, segment, furigana=""):
+        base_len = len(segment) * 2
+        if (furigana):
+            extra_furigana = max(len(furigana) - base_len, 0)
+            return base_len + extra_furigana
+        parens = re.search(r'(\(|\))', segment)
+        if parens:
+            base_len -= 2 # parens are only half width
+        return base_len
+
     def convert_formats(self):
         no_furigana= ""
         anki_furigana = ""
@@ -41,18 +51,12 @@ class Vocab:
                 furigana = FURIGANA_REGEX.match(part)
                 no_furigana += f"{furigana.group(1)}"
                 pronunciation += f"{furigana.group(2)}"
-                kanji_len = len(furigana.group(1)) * 2
-                self.width += kanji_len
-                extra_furigana = max(len(furigana.group(2)) - kanji_len, 0)
-                self.width += extra_furigana
+                self.width += self.calculate_segment_width(furigana.group(1), furigana.group(2))
                 if (i != 0):
                     anki_furigana += "[ ]"
                 anki_furigana += f"{furigana.group(1)}[{furigana.group(2)}]"
             else:
-                self.width += 2 * len(part)
-                parens = re.search(r'(\(|\))', part)
-                if parens:
-                    self.width -= 2 # parens are only half width
+                self.width += self.calculate_segment_width(part)
                 no_furigana += part
                 anki_furigana += part
                 pronunciation += part
@@ -61,13 +65,10 @@ class Vocab:
 def extract_vocab(text):
     text = text.strip().replace("- [  ] ", "").replace("*", "")
     text = text.replace("（", "(").replace("）", ")")
-    print(text)
     vocab, meaning = re.split(r'[ 　]\-+[ 　]', text)
     return Vocab(vocab, meaning)
 
 def format_vocab_list(vocab_list):
-    longest_vocab = max([vocab.width for vocab in vocab_list])
-    min_length = 4
     formatted_list = []
     # format list so meaning lines up with vocab padding space with -
     for vocab in vocab_list:
